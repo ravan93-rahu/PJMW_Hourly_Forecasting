@@ -16,7 +16,7 @@ def download_and_load_model():
     if not BUNDLE.exists():
         url = f"https://drive.google.com/uc?id={FILE_ID}"
         with st.spinner("Model 2GB file Google Drive varun download hot ahe, krupaya thamba..."):
-            gdown.download(url, str(BUNDLE), quiet=False, candidate_limit=5)
+            gdown.download(url, str(BUNDLE), quiet=False)
     
     return joblib.load(BUNDLE)
 
