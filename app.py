@@ -1,19 +1,31 @@
 from pathlib import Path
-
+import os
+import gdown
 import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
 from pandas.tseries.holiday import USFederalHolidayCalendar
 
-
 HERE = Path(__file__).resolve().parent
 BUNDLE = HERE / "model_bundle.joblib"
-if not BUNDLE.exists():
-    st.error("Model bundle is missing. Run the final deployment cell in PJMW_Hourly_Forecasting.ipynb first.")
+FILE_ID = "148OQ0KopGjiABR1ifwZA4r1J2NsvB59U"
+
+@st.cache_resource
+def download_and_load_model():
+    if not BUNDLE.exists():
+        url = f"https://drive.google.com/uc?id={FILE_ID}"
+        with st.spinner("Model 2GB file Google Drive varun download hot ahe, krupaya thamba..."):
+            gdown.download(url, str(BUNDLE), quiet=False, fuzzy=True)
+    
+    return joblib.load(BUNDLE)
+
+try:
+    bundle = download_and_load_model()
+except Exception as e:
+    st.error(f"Model load hotana samasya ali: {e}")
     st.stop()
 
-bundle = joblib.load(BUNDLE)
 models = bundle["models"]
 origin = bundle["origin"]
 last_timestamp = pd.Timestamp(bundle["last_timestamp"])
