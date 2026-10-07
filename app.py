@@ -14,12 +14,12 @@ FILE_ID = "148OQ0KopGjiABR1ifwZA4r1J2NsvB59U"
 @st.cache_resource
 def download_and_load_model():
     if not BUNDLE.exists():
-        url = f"https://drive.google.com/uc?id={FILE_ID}"
-        with st.spinner("Model 2GB file Google Drive varun download hot ahe, krupaya thamba..."):
+        # Google Drive ची मोठी फाईल थेट डाऊनलोड करण्यासाठी confirm=True वापरणे गरजेचे आहे
+        url = f"https://drive.google.com/uc?id={FILE_ID}&confirm=t"
+        with st.spinner("Model 2GB file Google Drive varun download hot ahe, krupaya thamba... (Thoda vel lagu shakto)"):
             gdown.download(url, str(BUNDLE), quiet=False)
     
     return joblib.load(BUNDLE)
-
 try:
     bundle = download_and_load_model()
 except Exception as e:
