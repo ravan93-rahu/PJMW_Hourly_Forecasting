@@ -4,12 +4,19 @@ import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
+import plotly.express as px
 from pandas.tseries.holiday import USFederalHolidayCalendar
 
+# 1. Page Configuration (Wide Layout)
+st.set_page_config(
+    page_title="PJM West Random Forest Forecast",
+    page_icon="⚡",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 HERE = Path(__file__).resolve().parent
 BUNDLE = HERE / "model_bundle_random_forest.joblib"
-
 
 @st.cache_resource
 def load_model_bundle():
@@ -20,7 +27,6 @@ def load_model_bundle():
         )
     return joblib.load(BUNDLE)
 
-
 try:
     bundle = load_model_bundle()
 except Exception as error:
@@ -30,7 +36,6 @@ except Exception as error:
 model = bundle["model"]
 origin = bundle["origin"]
 last_timestamp = pd.Timestamp(bundle["last_timestamp"])
-
 
 def make_features(index: pd.DatetimeIndex, origin: pd.Timestamp) -> np.ndarray:
     index = pd.DatetimeIndex(index)
@@ -47,18 +52,75 @@ def make_features(index: pd.DatetimeIndex, origin: pd.Timestamp) -> np.ndarray:
     columns.append(index.normalize().isin(holidays).astype(float))
     return np.column_stack(columns)
 
+# 2. Sidebar Controls
+st.sidebar.title("⚡ Control Panel")
+st.sidebar.markdown("---")
+st.sidebar.subheader("Model Information")
+st.sidebar.info("Model: **Random Forest**")
+st.sidebar.write(f"**Source Data Ends:**\n{last_timestamp:%Y-%m-%d %H:%M}")
 
-st.set_page_config(page_title="PJM West Random Forest Forecast", layout="wide")
-st.title("PJM West Hourly Load Forecast")
-st.subheader("Model: Random Forest")
+st.sidebar.markdown("---")
+days = st.sidebar.slider("Forecast horizon (days)", min_value=1, max_value=30, value=7)
+
+st.sidebar.markdown("---")
+st.sidebar.text("Data Science Portfolio App")
+
+# 3. Main Dashboard Header
+st.title("⚡ PJM West Hourly Load Forecast Dashboard")
 st.warning(
     f"Historical demonstration. Source data ends {last_timestamp:%Y-%m-%d %H:%M}; "
     "this is not a current operational forecast."
 )
-days = st.slider("Forecast horizon (days)", min_value=1, max_value=30, value=7)
+
+# Generate Predictions
 index = pd.date_range(last_timestamp + pd.Timedelta(hours=1), periods=days * 24, freq="h")
 values = model.predict(make_features(index, origin))
 result = pd.DataFrame({"Datetime": index, "Forecast_MW": values})
-st.line_chart(result.set_index("Datetime"))
-st.dataframe(result, use_container_width=True)
-st.download_button("Download forecast CSV", result.to_csv(index=False), "pjm_random_forest_forecast.csv", "text/csv")
+
+# 4. Top Metrics Cards (KPIs)
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric(label="📊 Average Forecast Load", value=f"{result['Forecast_MW'].mean():,.2f} MW")
+with col2:
+    st.metric(label="📈 Peak Load (Max)", value=f"{result['Forecast_MW'].max():,.2f} MW")
+with col3:
+    st.metric(label="📉 Minimum Load", value=f"{result['Forecast_MW'].min():,.2f} MW")
+
+st.markdown("---")
+
+# 5. Interactive Plotly Chart (Replacing simple line_chart)
+st.subheader("📈 Hourly Power Consumption Forecast Trend")
+fig = px.line(
+    result, 
+    x='Datetime', 
+    y='Forecast_MW',
+    labels={'Datetime': 'Date & Time', 'Forecast_MW': 'Forecasted Load (MW)'},
+    title=f"Electricity Demand Forecast for Next {days} Days"
+)
+fig.update_traces(line_color='#00CC96', line_width=2)
+fig.update_layout(
+    xaxis_title="Timeline",
+    yaxis_title="Load in MW",
+    hovermode="x unified",
+    template="plotly_white"
+)
+st.plotly_chart(fig, use_container_width=True)
+
+# 6. Data Preview and Download Section
+st.markdown("---")
+col_left, col_right = st.columns([2, 1])
+
+with col_left:
+    st.subheader("📋 Forecast Data Preview")
+    st.dataframe(result.head(10), use_container_width=True)
+
+with col_right:
+    st.subheader("📥 Export Results")
+    st.markdown("Download the complete forecast results as a CSV file.")
+    st.download_button(
+        label="Download forecast CSV",
+        data=result.to_csv(index=False).encode('utf-8'),
+        file_name="pjm_random_forest_forecast.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
